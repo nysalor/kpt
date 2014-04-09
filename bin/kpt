@@ -1,0 +1,56 @@
+#!/usr/bin/env ruby
+require 'kpt'
+require 'optparse'
+
+def display(list)
+  if list.empty?
+    puts "database is empty."
+  else
+    list.each do |entry|
+      puts "#{Time.at(entry[:utc])} #{colored_tag(entry[:tag_id])} #{entry[:body]}"
+    end
+  end
+end
+
+def colored_tag(id)
+  color = [:blue, :red, :yellow]
+  @kpt.tags[id].to_s.send(color[id])
+end
+
+@kpt = Kpt.new
+@opts = ARGV
+
+@action = ARGV[0] || 'recent'
+@today = Date.today
+
+{ keep: '-k', problem: '-p', try: '-t' }.each do |k, v|
+  if ARGV[1] == v
+    @tag = k
+  end
+end
+
+case @action
+when 'show'
+  @kpt.read nil, nil, @tag
+  display @kpt.get
+when 'recent'
+  to = Time.now
+  from = (Date.today - 7).to_time
+  @kpt.read from, to, @tag
+  display @kpt.get
+when 'write'
+  if @tag
+    if (ARGV[2])
+      @kpt.write @tag, ARGV[2]
+    else
+      tf = Tempfile.open('kpt')
+      tf.close
+      system "#{ENV["EDITOR"]} #{tf.path}"
+      tf.open
+      @kpt.write @tag, tf.read
+      tf.close
+    end
+  else
+    p "missing tag. tag must be '-k or -p or -t"
+  end
+end
